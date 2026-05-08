@@ -8,7 +8,12 @@
         Danh bạ
         <i class="fa-solid fa-address-book"></i>
       </h4>
-      <ContactList v-if="filteredContactsCount > 0" :contacts="filteredContacts" v-model:activeIndex="activeIndex" />
+      <div v-if="isLoading" class="text-center my-4">
+        <div class="spinner-border text-primary" role="status">
+          <span class="sr-only">Đang tải...</span>
+        </div>
+      </div>
+      <ContactList v-else-if="filteredContactsCount > 0" :contacts="filteredContacts" v-model:activeIndex="activeIndex" />
       <p v-else>Không có liên hệ nào.</p>
 
       <div class="mt-3 row justify-content-around align-items-center">
@@ -46,6 +51,7 @@ import ContactCard from '@/components/ContactCard.vue';
 import InputSearch from '@/components/InputSearch.vue';
 import ContactList from '@/components/ContactList.vue';
 import ContactService from '@/services/contact.service';
+import { toast } from 'vue-sonner';
 
 export default {
   components: {
@@ -58,6 +64,7 @@ export default {
       contacts: [],
       activeIndex: -1,
       searchText: '',
+      isLoading: false,
     };
   },
   watch: {
@@ -68,13 +75,14 @@ export default {
   computed: {
     contactStrings() {
       return this.contacts.map((contact) => {
-        const { name, email, address, phone } = contact;
-        return [name, email, address, phone].join('');
+        const { name, email, address, phone, notes, province_name, ward_name } = contact;
+        return [name, email, address, phone, notes, province_name, ward_name].join('').toLowerCase();
       });
     },
     filteredContacts() {
       if (!this.searchText) return this.contacts;
-      return this.contacts.filter((_contact, index) => this.contactStrings[index].includes(this.searchText));
+      const keyword = this.searchText.toLowerCase();
+      return this.contacts.filter((_contact, index) => this.contactStrings[index].includes(keyword));
     },
     activeContact() {
       if (this.activeIndex < 0) return null;
@@ -86,10 +94,13 @@ export default {
   },
   methods: {
     async retrieveContacts() {
+      this.isLoading = true;
       try {
         this.contacts = await ContactService.getAll();
       } catch (error) {
         console.log(error);
+      } finally {
+        this.isLoading = false;
       }
     },
     refreshList() {
@@ -100,9 +111,11 @@ export default {
       if (confirm('Bạn muốn xóa tất cả Liên hệ?')) {
         try {
           await ContactService.deleteAll();
+          toast.success('Đã xóa tất cả liên hệ.');
           this.refreshList();
         } catch (error) {
           console.log(error);
+          toast.error('Xóa thất bại. Vui lòng thử lại.');
         }
       }
     },
